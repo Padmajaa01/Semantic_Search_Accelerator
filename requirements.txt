@@ -1,0 +1,16 @@
+pinecone-client
+faiss-cpu
+chromadb
+langchain
+transformers
+huggingface-hub
+pypdf
+pyPDF2
+sentence-transformers
+unstructured
+urllib3
+docx2txt
+ibm-cloud-sdk-core
+streamlit
+streamlit-chat 
+streamlit-option-menu
