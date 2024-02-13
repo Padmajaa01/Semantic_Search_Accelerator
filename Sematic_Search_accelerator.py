@@ -1,24 +1,24 @@
-
+from dotenv import load_dotenv
 import streamlit as st
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 import os
 from sentence_transformers import SentenceTransformer
-#from langchain.document_loaders import PyPDFLoader
-#from langchain.document_loaders import UnstructuredFileLoader
+from langchain.document_loaders import PyPDFLoader
+from langchain.document_loaders import UnstructuredFileLoader
 from ibm_cloud_sdk_core import IAMTokenManager
 import requests
 from PIL import Image
-#from uuid import uuid4
-#from langchain.document_loaders import WebBaseLoader
+from uuid import uuid4
+from langchain.document_loaders import WebBaseLoader
 import glob
 import datetime
 from PyPDF2 import PdfReader
-#from langchain.embeddings.sentence_transformer import SentenceTransformerEmbeddings
-#from langchain.document_loaders import Docx2txtLoader
-#from langchain.document_loaders import UnstructuredPowerPointLoader
+from langchain.embeddings.sentence_transformer import SentenceTransformerEmbeddings
+from langchain.document_loaders import Docx2txtLoader
+from langchain.document_loaders import UnstructuredPowerPointLoader
 from langchain.vectorstores import Chroma
-#from langchain.retrievers.merger_retriever import MergerRetriever
+from langchain.retrievers.merger_retriever import MergerRetriever
 from langchain.llms.base import LLM as A_LLM
 from langchain.document_loaders import UnstructuredHTMLLoader
 from streamlit_option_menu import option_menu
@@ -28,35 +28,17 @@ sidebar_flag=0
 import requests
 import time
 
-from database1 import clearingTheIndex, query_pinecone_index, upsertingTheData, clearingTheIndexFAISS_Chroma,index
+from Database import clearingTheIndex, query_pinecone_index, upsertingTheData, index
 
 
-# # load_dotenv()
-# # base_filepath = os.getenv('BASE_FILEPATH')
-# # base_filepath="<Project filepath/location where you keep the code <C:\Users\padmaja.a01\GenAI\IBM_WatsonX> and documents to be processed for example <C:\Users\padmaja.a01\GenAI\IBM_WatsonX\InputFiles>>"
-# # huggingface_access_token =os.getenv('HUGGINGFACE_API_TOKEN')
-# api_url = "https://api-inference.huggingface.co/models/google/flan-t5-xxl"
-# # documents_directory = os.getenv('Documents_Directory')
-# # database = ""
-# # project_id=os.getenv('WATSON_PROJECT_ID')
-# # endpoint_url=os.getenv('WML_URL')
-# # api_key=os.getenv('API_KEY')
+load_dotenv()
+base_filepath = os.getenv('BASE_FILEPATH')
+documents_directory = os.getenv('Documents_Directory')
+database = ""
+project_id=os.getenv('WATSON_PROJECT_ID')
+endpoint_url=os.getenv('WML_URL')
+api_key=os.getenv('API_KEY')
 
-
-# # PINECONE_API_KEY=""
-# # PINECONE_ENV=""
-# # PINECONE_INDEX_NAME="semantic-search-pinecone"
-# api_key=""
-# endpoint_url="https://us-south.ml.cloud.ibm.com"
-# project_id=""
-
-# base_filepath="<Project filepath/location where you keep the code <C:\Users\padmaja.a01\GenAI\IBM_WatsonX> and documents to be processed for example <C:\Users\padmaja.a01\GenAI\IBM_WatsonX\InputFiles>>"
-# Documents_Directory = "<FAISS / CHROMA INDEX file storage location for example C:\Users\padmaja.a01\GenAI\IBM_WatsonX\Local_vector_DB_store >"
-
-PINECONE_API_KEY="d4dbf30a-2fd0-417d-a555-5b9cfb07dca5"
-PINECONE_ENV="us-west4-gcp-free"
-PINECONE_INDEX_NAME="semantic-search-pinecone"
-API_KEY="TBfsGAwtWYaDs3ZSjNbjtFrqcMO69srAVJooMHWLp79k"
  
 endpoint_url="https://us-south.ml.cloud.ibm.com"
 project_id="5299d745-b240-4f41-8d05-2709ff226ef9"
@@ -77,7 +59,7 @@ def chunk_text(text):
 
 # Function to genearte access token for IBM 
 access_token = IAMTokenManager(
-    apikey = API_KEY,
+    apikey = api_key,
     url = "https://iam.cloud.ibm.com/identity/token"
 ).get_token()
 # Summarizing the response using IBM Watsonx foundation model
@@ -186,36 +168,14 @@ def main():
                     if documents:
                         # Chunk the data
                         chunks = chunk_text(documents)
-                        if st.session_state['database'] == "FAISS":
-                            embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-                            if os.path.exists(documents_directory+"faiss_index"):
-                                db2 = FAISS.from_documents(chunks, embedding_function)
-                                db1 = FAISS.load_local(documents_directory+"faiss_index", embedding_function)
-                                db1.merge_from(db2)
-                                db1.save_local(documents_directory+"faiss_index")
-                                print("ABDD:",documents_directory+"faiss_index")
-                            else:
-                                db = FAISS.from_documents(chunks, embedding_function)
-                                db.save_local(documents_directory+"faiss_index")
-                            st.session_state['embedding_function'] = embedding_function
-                        elif st.session_state['database'] == "Pinecone":
+                        
+                        if st.session_state['database'] == "Pinecone":
                             embeddings = generate_embeddings(model,chunks)
                             ids = [str(uuid4()) for _ in range(len(chunks))]
                             metadatas = [{
                                 "chunk": j, "text": doc.page_content, "source":doc.metadata['source']} for j, doc in enumerate(chunks)]
                             upsertingTheData(ids,embeddings.tolist(),metadatas)
-                        elif st.session_state['database'] == "Chroma":
-                            embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-                            if os.path.exists(documents_directory+"chroma_db"):
-                                db2_chroma = Chroma.from_documents(chunks, embedding_function,persist_directory=documents_directory+"chroma_db")
-                                db1_chroma = Chroma(persist_directory=documents_directory+"chroma_db", embedding_function=embedding_function)
-                                retriever1 = db2_chroma.as_retriever()
-                                retriever2 = db1_chroma.as_retriever()
-                                merger_retriever = MergerRetriever(retrievers=[retriever1, retriever2])
-                                st.session_state['merger_retriever'] = merger_retriever
-                            else:
-                                db = Chroma.from_documents(chunks, embedding_function,persist_directory=documents_directory+"chroma_db")
-                            st.session_state['embedding_function'] = embedding_function       
+                               
                     else:
                         st.info(" For now we only support PDF's, HTML and XML documents.") 
                 st.success(" Successfully uploaded the data. ")                
@@ -236,30 +196,8 @@ def main():
                 if "messages" not in st.session_state:
                     st.session_state.messages = []
                 top_k_results = 3
-                if database == "FAISS":
-                    Embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-                    print("Inside retrival if condition")
-                    if os.path.exists(documents_directory + "faiss_index"):
-                        Embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-                        new_db = FAISS.load_local(documents_directory + "faiss_index", Embedding_function)
-                        docs_and_scores = new_db.similarity_search_with_score(user_question)
-                        top_3_search_results_text = [docs_and_scores[i] for i in range(0,2)]
-                        st.session_state['FAISS_Context'] = top_3_search_results_text
-                        print("Nearest Texts:", top_3_search_results_text) 
-                    else:
-                        raise FileNotFoundError  # Manually raise the FileNotFoundError
-                elif database == "Chroma":
-                    Embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-                    print("Inside retrival if condition")
-                    if os.path.exists(documents_directory+"chroma_db"):
-                        Embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-                        new_db = Chroma(persist_directory=documents_directory+"chroma_db", embedding_function=Embedding_function)
-                        docs_and_scores = new_db.similarity_search_with_score(user_question)
-                    else:
-                        raise FileNotFoundError   
-                    top_3_search_results_text = [docs_and_scores[i] for i in range(0,2)]
-                    st.session_state['Chroma_Context'] = top_3_search_results_text         
-                elif database == "Pinecone":
+                         
+                if database == "Pinecone":
                     stats = index.describe_index_stats()
                     total_vector_count = stats['total_vector_count']
                     top_k_results = 3
@@ -334,12 +272,10 @@ def main():
                 # Write the matching context details :
                 if display_context:
                     st.write("Matching Context:")
-                    if database == "FAISS":
-                        st.json(top_3_search_results_text)
-                    elif database == "Pinecone":
+                    
+                    if database == "Pinecone":
                         st.json(result_ids['matches'])
-                    elif database == "Chroma":
-                        st.json(top_3_search_results_text)
+                    
         except FileNotFoundError:    
             st.write(f"{database} Index file is not found. Please upload the documents to query")
     elif action == 'Chat History':
@@ -353,32 +289,20 @@ def main():
         st.write("\n")
     elif action == "Settings":
         st.markdown('<p class="big-font">Select vector DB of your choice</p>', unsafe_allow_html=True)
-        action = st.radio(" ", ("Pinecone","FAISS","Chroma"))
-        if action =='FAISS':
-            database = "FAISS"
-            st.session_state['database'] = database
-            print(database)
-        elif action == "Pinecone":
+        action = st.radio(" ", ("Pinecone","None")) #FAISS, Chroma removed
+        
+        if action == "Pinecone":
             database = "Pinecone"
             st.session_state['database'] = database
             print(database)  
-        elif action == "Chroma":
-            database = "Chroma"
-            st.session_state['database'] = database 
-            print(database)     
+        
         database =  st.session_state['database']
-        if database == "FAISS":
-            if st.button('Clear Vector DB', help="Clear the FAISS index folder to data upload"):
-                clearingTheIndexFAISS_Chroma("faiss_index")
-                st.success("Deleted previous vector data from the index successfully !")
-        elif database == "Pinecone":    
+        
+        if database == "Pinecone":    
             if st.button('Clear Vector DB', help="Clear the Pinecone index prior to data upload"):
                 clearingTheIndex()
                 st.success("Deleted previous vector data from the index successfully !")
-        elif database == "Chroma":
-            if st.button('Clear Vector DB', help="Clear the Chroma index prior to data upload"):
-                clearingTheIndexFAISS_Chroma("chroma_db")
-                st.success("Deleted previous vector data from the index successfully !")     
+          
 
 if __name__ == '__main__':
     main()
