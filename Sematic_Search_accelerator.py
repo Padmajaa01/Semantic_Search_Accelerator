@@ -28,7 +28,7 @@ sidebar_flag=0
 import requests
 import time
 
-from database1 import clearingTheIndex, query_pinecone_index, upsertingTheData, clearingTheIndexFAISS_Chroma,index
+from database import clearingTheIndex, query_pinecone_index, upsertingTheData, clearingTheIndexFAISS_Chroma,index
 
 
 # # load_dotenv()
